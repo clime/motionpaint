@@ -1,89 +1,103 @@
 import cv2
-import cv2.cv as cv
-
+import numpy as np
 from numpy.core import multiarray # NOTE: pyinstaller needs this
+
 from PyQt4 import QtNetwork # NOTE: pyinstaller needs this
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QObject
 
 class MotionPainter(QObject):
-
-    def __init__(self, main_window):
+    def __init__(self, mainWindow):
         super(QObject, self).__init__()
 
-        frame_size = main_window.ui.cameraWidget.frameSize
+        self.frameSize = mainWindow.videoWidget.videoScreen.frameSize
+        self.alphas = np.zeros((self.frameSize[1], self.frameSize[0]), dtype=float)
 
-        self.prev_frame = cv.CreateImage(frame_size, cv.IPL_DEPTH_8U, 3)
-        self.smoothed_frame = cv.CreateImage(frame_size, cv.IPL_DEPTH_8U, 3)
+        qcolor = mainWindow.colorPicker.color
+        self.color = (qcolor.blue(), qcolor.green(), qcolor.red())
+        self.alphaIncrement = mainWindow.alphaSetter.alpha
+        self.threshold = mainWindow.thresholdSetter.threshold
+        self.fading = mainWindow.fadingSetter.fading
 
-        self.diff = cv.CreateImage(frame_size, cv.IPL_DEPTH_8U, 3)
-        self.grey_diff = cv.CreateImage(frame_size, cv.IPL_DEPTH_8U, 1)
+        mainWindow.colorPicker.colorChanged.connect(self.onColorChanged)
+        mainWindow.alphaSetter.alphaChanged.connect(self.onAlphaChanged)
+        mainWindow.thresholdSetter.thresholdChanged.connect(self.onThresholdChanged)
+        mainWindow.fadingSetter.fadingChanged.connect(self.onFadingChanged)
+        mainWindow.videoWidget.videoScreen.newFrame.connect(self.processFrame)
 
-        self.alphas = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_32FC1)
-        self.betas = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_32FC1)
-        cv.SetZero(self.alphas)
-
-        self.alphas_merged = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_32FC3)
-        self.betas_merged = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_32FC3)
-
-        self.mask = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_8UC1)
-        self.color_mask = cv.CreateImage(frame_size, cv.IPL_DEPTH_8U, 3)
-
-        qcolor = main_window.ui.colorpicker.color
-        self.color = cv.CV_RGB(qcolor.red(), qcolor.green(), qcolor.blue())
-        main_window.color_changed.connect(self.on_color_changed)
-        main_window.new_frame.connect(self.process_frame)
+        self.prevFrameInited = False
+        self.frameCount = 0
 
     @QtCore.pyqtSlot(QtGui.QColor)
-    def on_color_changed(self, new_color):
-        self.color = cv.CV_RGB(new_color.red(), new_color.green(), new_color.blue())
+    def onColorChanged(self, newColor):
+        self.color = (newColor.blue(), newColor.green(), newColor.red())
+        self.alphas.fill(0)
 
-    @QtCore.pyqtSlot(cv.iplimage)
-    def process_frame(self, frame):
+    @QtCore.pyqtSlot(float)
+    def onAlphaChanged(self, newAlphaIncrement):
+        self.alphaIncrement = newAlphaIncrement
+        self.alphas.fill(0)
+
+    @QtCore.pyqtSlot(int)
+    def onThresholdChanged(self, newThreshold):
+        self.threshold = newThreshold
+        self.alphas.fill(0)
+
+    @QtCore.pyqtSlot(float)
+    def onFadingChanged(self, newFading):
+        self.fading = newFading
+        self.alphas.fill(0)
+
+    @QtCore.pyqtSlot(np.ndarray)
+    def processFrame(self, frame):
+        self.frameCount += 1
+
+        # let webcam calibrate
+        #if self.frameCount < 10: return
+
         # smooth frames to get rid of false positives
-        cv.Smooth(frame, self.smoothed_frame, cv.CV_GAUSSIAN, 3, 0)
+        smoothedFrame = cv2.GaussianBlur(frame, (3, 3), 0)
 
-        if not self.prev_frame:
-            self.prev_frame = cv.CloneImage(self.smoothed_frame)
+        if not self.prevFrameInited:
+            self.prevFrame = smoothedFrame
+            self.prevFrameInited = True
+            return
 
         # subtract current frame from previous one
-        cv.AbsDiff(self.prev_frame, self.smoothed_frame, self.diff)
+        diff = cv2.absdiff(self.prevFrame, smoothedFrame)
 
         # convert difference to grayscale.
-        cv.CvtColor(self.diff, self.grey_diff, cv.CV_RGB2GRAY)
+        greyDiff = cv2.cvtColor(diff, cv2.COLOR_RGB2GRAY)
 
         # grayscale to black and white (i.e. false and true)
-        threshold = 20
-        cv.Threshold(self.grey_diff, self.mask, threshold, 255, cv.CV_THRESH_BINARY)
+        retval, mask = cv2.threshold(greyDiff, self.threshold, 1, cv2.THRESH_BINARY)
+
+        #contours, hiearchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        #cv2.drawContours(frame, contours, -1, (255, 0, 0), 1)
 
         # add up some alpha for color-changed regions
-        alpha_increment = 0.04
-        cv.AddS(self.alphas, alpha_increment, self.alphas, self.mask)
+        cv2.add(self.alphas, self.alphaIncrement, self.alphas, mask)
 
-        # make sure alpha is not more than one (Gight not be needed)
-        frame_size = cv.GetSize(frame)
-        overflow = cv.CreateMat(frame_size[1], frame_size[0], cv.CV_8UC1)
-        cv.InRangeS(self.alphas, 0, 1+1e-10, overflow)
-        cv.Not(overflow, overflow)
-        cv.Set(self.alphas, 1, overflow)
+        # apply fading
+        self.alphas -= self.fading
+
+        np.clip(self.alphas, 0, 1, self.alphas)
 
         # calculate betas
-        cv.Set(self.betas, 1)
-        cv.Sub(self.betas, self.alphas, self.betas)
+        betas = 1 - self.alphas
 
         # 1-channel to 3-channel
-        cv.Merge(self.alphas, self.alphas, self.alphas, None, self.alphas_merged)
-        cv.Merge(self.betas, self.betas, self.betas, None, self.betas_merged)
+        alphasMerged = cv2.merge([self.alphas, self.alphas, self.alphas])
+        betasMerged = cv2.merge([betas, betas, betas])
 
         # fade out original image
-        cv.Mul(frame, self.betas_merged, frame)
+        frame *= betasMerged
 
         # calculate color mask
-        cv.Set(self.color_mask, self.color)
-        cv.Mul(self.color_mask, self.alphas_merged, self.color_mask)
+        colorMask = np.ones((self.frameSize[1], self.frameSize[0], 3), np.uint8) * alphasMerged * self.color
 
         # fade in color mask
-        cv.Add(frame, self.color_mask, frame)
+        frame += colorMask
 
-        # copy current image to prev image
-        self.prev_frame = cv.CloneImage(self.smoothed_frame)
+        # copy current smoothed frame to prev frame
+        self.prevFrame = smoothedFrame
