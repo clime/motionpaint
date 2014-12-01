@@ -1,1 +1,1 @@
-hello git again
+Visualizing motion with Python, Opencv, and Qt.
