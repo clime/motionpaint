@@ -16,6 +16,7 @@ except AttributeError:
 
 try:
     _encoding = QtGui.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
@@ -40,10 +41,10 @@ class MainWindow(QtGui.QMainWindow):
         self.videoWidget.setGeometry(QtCore.QRect(0, 0, 640, 640))
         self.videoWidget.setObjectName(_fromUtf8("videoWidget"))
 
-        self.groupBox = QtGui.QGroupBox('Settings', self);
+        self.groupBox = QtGui.QGroupBox('Settings', self)
         self.groupBox.setGeometry(QtCore.QRect(655, 10, 355, 471))
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
-        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; }");
+        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; }")
 
         self.colorPicker = ColorPicker(self, self.groupBox)
         self.colorPicker.setObjectName(_fromUtf8("colorPicker"))
@@ -299,10 +300,10 @@ class VideoWidget(QtGui.QWidget):
         if newState == Phonon.ErrorState:
             if self.mediaObject.errorType() == Phonon.FatalError:
                 QtGui.QMessageBox.warning(self, "Fatal Error",
-                        self.mediaObject.errorString())
+                                          self.mediaObject.errorString())
             else:
                 QtGui.QMessageBox.warning(self, "Error",
-                        self.mediaObject.errorString())
+                                          self.mediaObject.errorString())
 
         elif newState == Phonon.PlayingState:
             self.playAction.setEnabled(False)
@@ -333,8 +334,10 @@ class VideoScreen(QtGui.QWidget):
         self.videoStream.newFrame.connect(self.onNewFrame)
 
         w, h = self.videoStream.frameSize
-        if not w: w = 640
-        if not h: h = 480
+        if not w:
+            w = 640
+        if not h:
+            h = 480
 
         self.setMinimumSize(w, h)
         self.setMaximumSize(w, h)
@@ -344,7 +347,7 @@ class VideoScreen(QtGui.QWidget):
         self.videoStream.mirrored = False
 
     def frame2QImage(self, frame):
-        height, width=frame.shape[:2]
+        height, width = frame.shape[:2]
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return QtGui.QImage(frame, width, height, QtGui.QImage.Format_RGB888)
 
@@ -362,7 +365,8 @@ class VideoScreen(QtGui.QWidget):
                 self.videoStream.newFrame.disconnect(self.onNewFrame)
 
     def paintEvent(self, e):
-        if self.frame is None: return
+        if self.frame is None:
+            return
 
         painter = QtGui.QPainter(self)
         painter.drawImage(QtCore.QPoint(0, 0), self.frame2QImage(self.frame))
