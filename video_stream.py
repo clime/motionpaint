@@ -12,7 +12,7 @@ class VideoStream(QtCore.QObject):
         super(VideoStream, self).__init__()
 
         self.stream = cv2.VideoCapture(0)
-        #self.stream = cv2.VideoCapture('/home/clime/mrak/motionpaint/patron_web.mp4')
+        # self.stream = cv2.VideoCapture('/home/clime/mrak/motionpaint/patron_web.mp4')
 
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.queryFrame)
@@ -28,7 +28,8 @@ class VideoStream(QtCore.QObject):
     @QtCore.pyqtSlot()
     def queryFrame(self):
         ret, frame = self.stream.read()
-        if not ret: return
+        if not ret:
+            return
 
         if self.mirrored:
             frame = cv2.flip(frame, 1)
@@ -49,7 +50,8 @@ class VideoStream(QtCore.QObject):
     @property
     def fps(self):
         fps = self.stream.get(cv2.cv.CV_CAP_PROP_FPS)
-        if not fps > 0: fps = self.DEFAULT_FPS
+        if not fps > 0:
+            fps = self.DEFAULT_FPS
         return fps
 
     @property

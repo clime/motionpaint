@@ -24,9 +24,9 @@ except AttributeError:
         return QtGui.QApplication.translate(context, text, disambig)
 
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtGui.QWidget):
     def __init__(self):
-        QtGui.QMainWindow.__init__(self)
+        super(MainWindow, self).__init__()
         self.setupUi()
 
     def keyPressEvent(self, e):
@@ -35,35 +35,38 @@ class MainWindow(QtGui.QMainWindow):
 
     def setupUi(self):
         self.setObjectName(_fromUtf8("self"))
-        self.resize(1024, 640)
-
         self.videoWidget = VideoWidget(self, self)
-        self.videoWidget.setGeometry(QtCore.QRect(0, 0, 640, 640))
         self.videoWidget.setObjectName(_fromUtf8("videoWidget"))
-
         self.groupBox = QtGui.QGroupBox('Settings', self)
-        self.groupBox.setGeometry(QtCore.QRect(655, 10, 355, 471))
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
         self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; }")
-
+        self.groupBox.setMinimumWidth(300)
         self.colorPicker = ColorPicker(self, self.groupBox)
         self.colorPicker.setObjectName(_fromUtf8("colorPicker"))
-        self.colorPicker.move(10, 45)
-
         self.alphaSetter = AlphaSetter(self, self.groupBox)
         self.alphaSetter.setObjectName(_fromUtf8("alphaSetter"))
-        self.alphaSetter.move(10, 115)
 
         self.thresholdSetter = ThresholdSetter(self, self.groupBox)
         self.thresholdSetter.setObjectName(_fromUtf8("thresholdSetter"))
-        self.thresholdSetter.move(10, 175)
 
         self.fadingSetter = FadingSetter(self, self.groupBox)
         self.fadingSetter.setObjectName(_fromUtf8("fadingSetter"))
-        self.fadingSetter.move(10, 235)
 
         self.retranslate()
         QtCore.QMetaObject.connectSlotsByName(self)
+
+        vbox_setting = QtGui.QVBoxLayout(self)
+        vbox_setting.addWidget(self.colorPicker)
+        vbox_setting.addWidget(self.alphaSetter)
+        vbox_setting.addWidget(self.thresholdSetter)
+        vbox_setting.addWidget(self.fadingSetter)
+        vbox_setting.addStretch()
+        self.groupBox.setLayout(vbox_setting)
+
+        hbox = QtGui.QHBoxLayout(self)
+        hbox.addWidget(self.videoWidget)
+        hbox.addWidget(self.groupBox)
+        self.setLayout(hbox)
 
     def retranslate(self):
         self.setWindowTitle(_translate("Motionpaint", "Motionpaint", None))
@@ -79,14 +82,14 @@ class ColorPicker(QtGui.QWidget):
 
     def setupUi(self):
         self.color = QtGui.QColor(255, 255, 255)
-
         self.label = QtGui.QLabel('Color', self)
-        self.label.setGeometry(0, 0, 120, 20)
-
         self.btn = QtGui.QPushButton('', self)
-        self.btn.setGeometry(0, 25, 335, 25)
         self.btn.setStyleSheet("QWidget { background-color: %s }" % self.color.name())
         self.btn.clicked.connect(self.showDialog)
+
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.label)
+        vbox.addWidget(self.btn)
 
     def showDialog(self):
         self.mainWindow.videoWidget.pause()
@@ -110,10 +113,8 @@ class AlphaSetter(QtGui.QWidget):
         self.alpha = 0.5
 
         self.label = QtGui.QLabel('Alpha increment', self)
-        self.label.setGeometry(0, 0, 120, 20)
 
         self.horizontalSlider = QtGui.QSlider(self)
-        self.horizontalSlider.setGeometry(QtCore.QRect(0, 20, 245, 25))
         self.horizontalSlider.setMaximum(100)
         self.horizontalSlider.setSingleStep(1)
         self.horizontalSlider.setOrientation(QtCore.Qt.Horizontal)
@@ -121,13 +122,19 @@ class AlphaSetter(QtGui.QWidget):
         self.horizontalSlider.setValue(int(self.alpha*100))
 
         self.doubleSpinBox = QtGui.QDoubleSpinBox(self)
-        self.doubleSpinBox.setGeometry(QtCore.QRect(255, 20, 80, 25))
         self.doubleSpinBox.setButtonSymbols(QtGui.QAbstractSpinBox.PlusMinus)
         self.doubleSpinBox.setDecimals(3)
         self.doubleSpinBox.setAccelerated(True)
         self.doubleSpinBox.setMaximum(1)
         self.doubleSpinBox.setSingleStep(0.01)
         self.doubleSpinBox.setValue(self.alpha)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.horizontalSlider)
+        hbox.addWidget(self.doubleSpinBox)
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox)
 
         def alphaChanged(alpha):
             self.alpha = alpha
@@ -168,6 +175,13 @@ class ThresholdSetter(QtGui.QWidget):
         self.spinBox.setMaximum(100)
         self.spinBox.setSingleStep(1)
         self.spinBox.setValue(self.threshold)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.horizontalSlider)
+        hbox.addWidget(self.spinBox)
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox)
 
         def thresholdChanged(threshold):
             self.threshold = threshold
@@ -210,6 +224,13 @@ class FadingSetter(QtGui.QWidget):
         self.doubleSpinBox.setSingleStep(0.01)
         self.doubleSpinBox.setValue(self.fading)
 
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.horizontalSlider)
+        hbox.addWidget(self.doubleSpinBox)
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.label)
+        vbox.addLayout(hbox)
+
         def fadingChanged(fading):
             self.fading = fading
             self.horizontalSlider.setValue(int(fading*100))
@@ -229,13 +250,19 @@ class FileWidget(QtGui.QWidget):
         self.setupUi()
 
     def setupUi(self):
+
         self.btn = QtGui.QPushButton('Select File', self)
         self.btn.clicked.connect(self.showDialog)
         dirIcon = self.style().standardIcon(self.style().SP_DirIcon)
         self.btn.setIcon(dirIcon)
 
         self.label = QtGui.QLabel('No file selected', self)
-        self.label.move(120, 8)
+
+        self.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        self.btn.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        hbox = QtGui.QHBoxLayout(self)
+        hbox.addWidget(self.btn)
+        hbox.addWidget(self.label)
 
         def onFileChanged(filename):
             self.label.setText(filename)
@@ -262,7 +289,6 @@ class VideoWidget(QtGui.QWidget):
         self.videoScreen = VideoScreen(self, self)
 
         self.fileWidget = FileWidget(self.mainWindow, self)
-        self.fileWidget.setGeometry(QtCore.QRect(20, 490, 600, 100))
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
 
         self.playAction = QtGui.QAction(
@@ -281,11 +307,16 @@ class VideoWidget(QtGui.QWidget):
         self.bar.addAction(self.playAction)
         self.bar.addAction(self.pauseAction)
         self.bar.addAction(self.stopAction)
-        self.bar.setGeometry(QtCore.QRect(20, 535, 600, 35))
 
         self.fileWidget.fileChanged.connect(self.onFileChanged)
 
         QtCore.QMetaObject.connectSlotsByName(self)
+
+        hbox = QtGui.QVBoxLayout(self)
+        hbox.addWidget(self.videoScreen)
+        hbox.addWidget(self.fileWidget)
+        hbox.addWidget(self.bar)
+        hbox.addStretch()
 
     def onFileChanged(self, filename):
         self.videoScreen.setSource(str(filename))
@@ -340,7 +371,6 @@ class VideoScreen(QtGui.QWidget):
             h = 480
 
         self.setMinimumSize(w, h)
-        self.setMaximumSize(w, h)
 
     def setSource(self, source):
         self.videoStream.setSource(source)
