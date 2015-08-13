@@ -377,6 +377,8 @@ class VideoScreen(QtGui.QWidget):
     def setSource(self, source):
         self.videoStream.setSource(source)
         self.videoStream.mirrored = False
+        w, h = self.videoStream.frameSize
+        self.setMinimumSize(w, h)
 
     def frame2QImage(self, frame):
         height, width = frame.shape[:2]
