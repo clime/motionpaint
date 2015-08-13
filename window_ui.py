@@ -64,8 +64,10 @@ class MainWindow(QtGui.QWidget):
         self.groupBox.setLayout(vbox_setting)
 
         hbox = QtGui.QHBoxLayout(self)
-        hbox.addWidget(self.videoWidget)
-        hbox.addWidget(self.groupBox)
+        splitter = QtGui.QSplitter()
+        splitter.addWidget(self.videoWidget)
+        splitter.addWidget(self.groupBox)
+        hbox.addWidget(splitter)
         self.setLayout(hbox)
 
     def retranslate(self):
