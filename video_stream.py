@@ -21,9 +21,15 @@ class VideoStream(QtCore.QObject):
         self.mirrored = mirrored
         self.paused = False
 
+
     def setSource(self, source):
         self.stream.release()
         self.stream.open(source)
+
+    # does not work so far
+    def setSize(self, w=640, h=480):
+        self.stream.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, w)
+        self.stream.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, h)
 
     @QtCore.pyqtSlot()
     def queryFrame(self):

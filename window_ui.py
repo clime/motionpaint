@@ -39,7 +39,7 @@ class MainWindow(QtGui.QWidget):
         self.videoWidget.setObjectName(_fromUtf8("videoWidget"))
         self.groupBox = QtGui.QGroupBox('Settings', self)
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
-        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; margin-bottom: 6px; }")
+        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; }")
         self.groupBox.setMinimumWidth(300)
         self.colorPicker = ColorPicker(self, self.groupBox)
         self.colorPicker.setObjectName(_fromUtf8("colorPicker"))
@@ -321,6 +321,7 @@ class VideoWidget(QtGui.QWidget):
         hbox.addStretch()
         hbox.addWidget(self.bar1)
         hbox.addWidget(self.bar2)
+        hbox.setContentsMargins(-1, -1, -1, 2);
 
     def onFileChanged(self, filename):
         self.videoScreen.setSource(str(filename))
@@ -369,6 +370,7 @@ class VideoScreen(QtGui.QWidget):
         self.videoStream.newFrame.connect(self.onNewFrame)
 
         w, h = self.videoStream.frameSize
+
         if not w:
             w = 640
         if not h:
