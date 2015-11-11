@@ -6,7 +6,7 @@ import signal
 from PyQt4 import QtGui
 
 from window_ui import MainWindow
-from motion_painter import MotionPainter
+from painter import Painter
 
 
 class App(QtGui.QApplication):
@@ -15,7 +15,7 @@ class App(QtGui.QApplication):
         self.setStyle("cleanlooks")
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         self.window = MainWindow()
-        self.motion_painter = MotionPainter(self.window)
+        self.painter = Painter(self.window)
 
     def run(self):
         self.window.show()

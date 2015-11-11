@@ -39,7 +39,7 @@ class MainWindow(QtGui.QWidget):
         self.videoWidget.setObjectName(_fromUtf8("videoWidget"))
         self.groupBox = QtGui.QGroupBox('Settings', self)
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
-        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; }")
+        self.groupBox.setStyleSheet("QGroupBox { font-size: 18px; font-weight: bold; margin-bottom: 6px; }")
         self.groupBox.setMinimumWidth(300)
         self.colorPicker = ColorPicker(self, self.groupBox)
         self.colorPicker.setObjectName(_fromUtf8("colorPicker"))
@@ -252,7 +252,6 @@ class FileWidget(QtGui.QWidget):
         self.setupUi()
 
     def setupUi(self):
-
         self.btn = QtGui.QPushButton('Select File', self)
         self.btn.clicked.connect(self.showDialog)
         dirIcon = self.style().standardIcon(self.style().SP_DirIcon)
@@ -293,6 +292,9 @@ class VideoWidget(QtGui.QWidget):
         self.fileWidget = FileWidget(self.mainWindow, self)
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
 
+        self.bar1 = QtGui.QToolBar(self)
+        self.bar1.addWidget(self.fileWidget)
+
         self.playAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaPlay), "Play",
             self, shortcut="Ctrl+P", enabled=False)
@@ -305,10 +307,10 @@ class VideoWidget(QtGui.QWidget):
             self.style().standardIcon(QtGui.QStyle.SP_MediaStop), "Stop",
             self, shortcut="Ctrl+S", enabled=False)
 
-        self.bar = QtGui.QToolBar(self)
-        self.bar.addAction(self.playAction)
-        self.bar.addAction(self.pauseAction)
-        self.bar.addAction(self.stopAction)
+        self.bar2 = QtGui.QToolBar(self)
+        self.bar2.addAction(self.playAction)
+        self.bar2.addAction(self.pauseAction)
+        self.bar2.addAction(self.stopAction)
 
         self.fileWidget.fileChanged.connect(self.onFileChanged)
 
@@ -316,9 +318,9 @@ class VideoWidget(QtGui.QWidget):
 
         hbox = QtGui.QVBoxLayout(self)
         hbox.addWidget(self.videoScreen)
-        hbox.addWidget(self.fileWidget)
-        hbox.addWidget(self.bar)
         hbox.addStretch()
+        hbox.addWidget(self.bar1)
+        hbox.addWidget(self.bar2)
 
     def onFileChanged(self, filename):
         self.videoScreen.setSource(str(filename))

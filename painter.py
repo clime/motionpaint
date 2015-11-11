@@ -4,11 +4,10 @@ from numpy.core import multiarray # NOTE: pyinstaller needs this
 
 from PyQt4 import QtNetwork # NOTE: pyinstaller needs this
 from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import QObject
 
-class MotionPainter(QObject):
+class Painter(QtCore.QObject):
     def __init__(self, mainWindow):
-        super(QObject, self).__init__()
+        super(QtCore.QObject, self).__init__()
 
         self.frameSize = mainWindow.videoWidget.videoScreen.frameSize
         self.alphas = np.zeros((self.frameSize[1], self.frameSize[0]), dtype=float)
