@@ -9,8 +9,7 @@ class Painter(QtCore.QObject):
     def __init__(self, mainWindow):
         super(QtCore.QObject, self).__init__()
 
-        self.frameSize = mainWindow.videoWidget.videoScreen.frameSize
-        self.alphas = np.zeros((self.frameSize[1], self.frameSize[0]), dtype=float)
+        self.before_first_frame = True # to init stuff based on the properties of the first frame
 
         qcolor = mainWindow.colorPicker.color
         self.color = (qcolor.blue(), qcolor.green(), qcolor.red())
@@ -23,6 +22,7 @@ class Painter(QtCore.QObject):
         mainWindow.thresholdSetter.thresholdChanged.connect(self.onThresholdChanged)
         mainWindow.fadingSetter.fadingChanged.connect(self.onFadingChanged)
         mainWindow.videoWidget.videoScreen.newFrame.connect(self.processFrame)
+        mainWindow.videoWidget.videoScreen.sourceChanged.connect(self.onVideoSourceChanged)
 
         self.prevFrameInited = False
         self.frameCount = 0
@@ -47,25 +47,25 @@ class Painter(QtCore.QObject):
         self.fading = newFading
         self.alphas.fill(0)
 
+    def onVideoSourceChanged(self):
+        self.before_first_frame = True
+
     @QtCore.pyqtSlot(np.ndarray)
     def processFrame(self, frame):
         self.frameCount += 1
 
-        # let webcam calibrate
-        #if self.frameCount < 10: return
-
         # smooth frames to get rid of false positives
         smoothedFrame = cv2.GaussianBlur(frame, (3, 3), 0)
 
-        if not self.prevFrameInited:
+        if self.before_first_frame:
+            self.alphas = np.zeros((frame.shape[0], frame.shape[1]), dtype=float)
             self.prevFrame = smoothedFrame
-            self.prevFrameInited = True
-            return
+            self.before_first_frame = False
 
         # subtract current frame from previous one
         diff = cv2.absdiff(self.prevFrame, smoothedFrame)
 
-        # convert difference to grayscale.
+        # convert difference to grayscale
         greyDiff = cv2.cvtColor(diff, cv2.COLOR_RGB2GRAY)
 
         # grayscale to black and white (i.e. false and true)
@@ -93,7 +93,7 @@ class Painter(QtCore.QObject):
         frame *= betasMerged
 
         # calculate color mask
-        colorMask = np.ones((self.frameSize[1], self.frameSize[0], 3), np.uint8) * alphasMerged * self.color
+        colorMask = np.ones((frame.shape[0], frame.shape[1], 3), np.uint8) * alphasMerged * self.color
 
         # fade in color mask
         frame += colorMask

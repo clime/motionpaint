@@ -7,39 +7,41 @@ from PyQt4 import QtCore
 class VideoStream(QtCore.QObject):
     DEFAULT_FPS = 30
     newFrame = QtCore.pyqtSignal(np.ndarray)
+    sourceChanged = QtCore.pyqtSignal()
 
-    def __init__(self, source=0, mirrored=False):
+    def __init__(self, source=0):
         super(VideoStream, self).__init__()
-
-        self.stream = cv2.VideoCapture(0)
-        # self.stream = cv2.VideoCapture('/home/clime/mrak/motionpaint/patron_web.mp4')
-
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.queryFrame)
-        self.timer.setInterval(1000/self.fps)
-
-        self.mirrored = mirrored
-        self.paused = False
-
+        self.stream = cv2.VideoCapture()
+        self.setSource(source)
+        self.preReadFrame = None
 
     def setSource(self, source):
         self.stream.release()
         self.stream.open(source)
+        _, preReadFrame = self.stream.read() # we need to preread the first frame to have fps, w, h info available
+        self.sourceChanged.emit()
+        self.setupFrameReadingTimer()
 
-    # does not work so far
+    def setupFrameReadingTimer(self):
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.readFrame)
+        self.timer.setInterval(1000/self.fps)
+        self.paused = False
+
+    # does not work :-(
     def setSize(self, w=640, h=480):
         self.stream.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, w)
         self.stream.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, h)
 
     @QtCore.pyqtSlot()
-    def queryFrame(self):
+    def readFrame(self):
+        if self.preReadFrame:
+            self.newFrame.emit(self.preReadFrame)
+            self.preReadFrame = None
+            return
         ret, frame = self.stream.read()
         if not ret:
             return
-
-        if self.mirrored:
-            frame = cv2.flip(frame, 1)
-
         self.newFrame.emit(frame)
 
     @property

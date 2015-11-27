@@ -359,6 +359,7 @@ class VideoWidget(QtGui.QWidget):
 
 class VideoScreen(QtGui.QWidget):
     newFrame = QtCore.pyqtSignal(np.ndarray)
+    sourceChanged = QtCore.pyqtSignal()
 
     def __init__(self, mainWindow, parent=None):
         super(VideoScreen, self).__init__(parent)
@@ -366,8 +367,9 @@ class VideoScreen(QtGui.QWidget):
 
         self.frame = None
 
-        self.videoStream = VideoStream(mirrored=False)
+        self.videoStream = VideoStream()
         self.videoStream.newFrame.connect(self.onNewFrame)
+        self.videoStream.sourceChanged.connect(self.onSourceChanged)
 
         w, h = self.videoStream.frameSize
 
@@ -380,9 +382,6 @@ class VideoScreen(QtGui.QWidget):
 
     def setSource(self, source):
         self.videoStream.setSource(source)
-        self.videoStream.mirrored = False
-        w, h = self.videoStream.frameSize
-        self.setMinimumSize(w, h)
 
     def frame2QImage(self, frame):
         height, width = frame.shape[:2]
@@ -394,6 +393,9 @@ class VideoScreen(QtGui.QWidget):
         self.frame = frame
         self.newFrame.emit(self.frame)
         self.update()
+
+    def onSourceChanged(self):
+        self.sourceChanged.emit()
 
     def changeEvent(self, e):
         if e.type() == QtCore.QEvent.EnabledChange:
