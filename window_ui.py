@@ -53,7 +53,6 @@ class MainWindow(QtGui.QWidget):
         self.fadingSetter.setObjectName(_fromUtf8("fadingSetter"))
 
         self.retranslate()
-        QtCore.QMetaObject.connectSlotsByName(self)
 
         vbox_setting = QtGui.QVBoxLayout(self)
         vbox_setting.addWidget(self.colorPicker)
@@ -145,7 +144,6 @@ class AlphaSetter(QtGui.QWidget):
 
         QtCore.QObject.connect(self.horizontalSlider, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), lambda v: self.doubleSpinBox.setValue(v/100.0))
         QtCore.QObject.connect(self.doubleSpinBox, QtCore.SIGNAL(_fromUtf8("valueChanged(double)")), alphaChanged)
-        QtCore.QMetaObject.connectSlotsByName(self)
 
 
 class ThresholdSetter(QtGui.QWidget):
@@ -192,7 +190,6 @@ class ThresholdSetter(QtGui.QWidget):
 
         QtCore.QObject.connect(self.horizontalSlider, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), self.spinBox.setValue)
         QtCore.QObject.connect(self.spinBox, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), thresholdChanged)
-        QtCore.QMetaObject.connectSlotsByName(self)
 
 
 class FadingSetter(QtGui.QWidget):
@@ -240,7 +237,6 @@ class FadingSetter(QtGui.QWidget):
 
         QtCore.QObject.connect(self.horizontalSlider, QtCore.SIGNAL(_fromUtf8("valueChanged(int)")), lambda v: self.doubleSpinBox.setValue(v/100.0))
         QtCore.QObject.connect(self.doubleSpinBox, QtCore.SIGNAL(_fromUtf8("valueChanged(double)")), fadingChanged)
-        QtCore.QMetaObject.connectSlotsByName(self)
 
 
 class FileWidget(QtGui.QWidget):
@@ -291,9 +287,17 @@ class VideoWidget(QtGui.QWidget):
 
         self.fileWidget = FileWidget(self.mainWindow, self)
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
+        self.switchToWebCamBtn = QtGui.QPushButton('Switch to WebCam', self)
+        self.switchToWebCamBtn.setStyleSheet("margin-right: 7px; padding: 5px;")
+        self.switchToWebCamBtn.clicked.connect(self.onSwitchToWebCamBtnClicked)
+
+        self.spacer = QtGui.QWidget()
+        self.spacer.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
 
         self.bar1 = QtGui.QToolBar(self)
         self.bar1.addWidget(self.fileWidget)
+        self.bar1.addWidget(self.spacer)
+        self.bar1.addWidget(self.switchToWebCamBtn)
 
         self.playAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaPlay), "Play",
@@ -314,14 +318,15 @@ class VideoWidget(QtGui.QWidget):
 
         self.fileWidget.fileChanged.connect(self.onFileChanged)
 
-        QtCore.QMetaObject.connectSlotsByName(self)
-
         hbox = QtGui.QVBoxLayout(self)
         hbox.addWidget(self.videoScreen)
         hbox.addStretch()
         hbox.addWidget(self.bar1)
         hbox.addWidget(self.bar2)
         hbox.setContentsMargins(-1, -1, -1, 2);
+
+    def onSwitchToWebCamBtnClicked(self):
+        self.videoScreen.setSource(0)
 
     def onFileChanged(self, filename):
         self.videoScreen.setSource(str(filename))

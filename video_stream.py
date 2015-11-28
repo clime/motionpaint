@@ -11,22 +11,20 @@ class VideoStream(QtCore.QObject):
 
     def __init__(self, source=0):
         super(VideoStream, self).__init__()
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.readFrame)
+        self.preReadFrame = None
+
         self.stream = cv2.VideoCapture()
         self.setSource(source)
-        self.preReadFrame = None
+        self.paused = False
 
     def setSource(self, source):
         self.stream.release()
-        self.stream.open(source)
+        self.stream = cv2.VideoCapture(source)
         _, preReadFrame = self.stream.read() # we need to preread the first frame to have fps, w, h info available
         self.sourceChanged.emit()
-        self.setupFrameReadingTimer()
-
-    def setupFrameReadingTimer(self):
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.readFrame)
         self.timer.setInterval(1000/self.fps)
-        self.paused = False
 
     # does not work :-(
     def setSize(self, w=640, h=480):
