@@ -4,8 +4,6 @@ import numpy as np
 import cv2
 
 from PyQt4 import QtCore, QtGui
-from PyQt4.phonon import Phonon
-
 from video_stream import VideoStream
 
 try:
@@ -301,15 +299,18 @@ class VideoWidget(QtGui.QWidget):
 
         self.playAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaPlay), "Play",
-            self, shortcut="Ctrl+P", enabled=False)
+            self, shortcut="Ctrl+P", enabled=True)
+        self.playAction.triggered.connect(self.play)
 
         self.pauseAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaPause), "Pause",
-            self, shortcut="Ctrl+A", enabled=False)
+            self, shortcut="Ctrl+A", enabled=True)
+        self.pauseAction.triggered.connect(self.pause)
 
         self.stopAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaStop), "Stop",
-            self, shortcut="Ctrl+S", enabled=False)
+            self, shortcut="Ctrl+S", enabled=True)
+        self.stopAction.triggered.connect(self.stop)
 
         self.bar2 = QtGui.QToolBar(self)
         self.bar2.addAction(self.playAction)
@@ -337,34 +338,14 @@ class VideoWidget(QtGui.QWidget):
     def play(self):
         self.videoScreen.play()
 
-    def onStateChanged(self, newState, oldState=None):
-        if newState == Phonon.ErrorState:
-            if self.mediaObject.errorType() == Phonon.FatalError:
-                QtGui.QMessageBox.warning(self, "Fatal Error",
-                                          self.mediaObject.errorString())
-            else:
-                QtGui.QMessageBox.warning(self, "Error",
-                                          self.mediaObject.errorString())
-
-        elif newState == Phonon.PlayingState:
-            self.playAction.setEnabled(False)
-            self.pauseAction.setEnabled(True)
-            self.stopAction.setEnabled(True)
-
-        elif newState == Phonon.StoppedState:
-            self.stopAction.setEnabled(False)
-            self.playAction.setEnabled(True)
-            self.pauseAction.setEnabled(False)
-
-        elif newState == Phonon.PausedState:
-            self.pauseAction.setEnabled(False)
-            self.stopAction.setEnabled(True)
-            self.playAction.setEnabled(True)
+    def stop(self):
+        self.videoScreen.stop()
 
 
 class VideoScreen(QtGui.QWidget):
     newFrame = QtCore.pyqtSignal(np.ndarray)
     sourceChanged = QtCore.pyqtSignal()
+    stateChanged = QtCore.pyqtSignal(int)
 
     def __init__(self, mainWindow, parent=None):
         super(VideoScreen, self).__init__(parent)
@@ -372,18 +353,19 @@ class VideoScreen(QtGui.QWidget):
 
         self.frame = None
 
-        self.videoStream = VideoStream()
+        self.videoStream = VideoStream(0)
         self.videoStream.newFrame.connect(self.onNewFrame)
         self.videoStream.sourceChanged.connect(self.onSourceChanged)
+        self.videoStream.stateChanged.connect(self.onStateChanged)
 
         w, h = self.videoStream.frameSize
-
         if not w:
             w = 640
         if not h:
             h = 480
-
         self.setMinimumSize(w, h)
+
+        self.videoStream.play()
 
     def setSource(self, source):
         self.videoStream.setSource(source)
@@ -402,26 +384,25 @@ class VideoScreen(QtGui.QWidget):
     def onSourceChanged(self):
         self.sourceChanged.emit()
 
-    def changeEvent(self, e):
-        if e.type() == QtCore.QEvent.EnabledChange:
-            if self.isEnabled():
-                self.videoStream.newFrame.connect(self.onNewFrame)
-            else:
-                self.videoStream.newFrame.disconnect(self.onNewFrame)
+    @QtCore.pyqtSlot(int)
+    def onStateChanged(self, state):
+        self.stateChanged.emit(state)
+        self.update()
 
     def paintEvent(self, e):
-        if self.frame is None:
-            return
-
-        painter = QtGui.QPainter(self)
-        painter.drawImage(QtCore.QPoint(0, 0), self.frame2QImage(self.frame))
+        if self.frame is not None and self.videoStream.state != VideoStream.State.STOPPED:
+            painter = QtGui.QPainter(self)
+            painter.drawImage(QtCore.QPoint(0, 0), self.frame2QImage(self.frame))
 
     @property
-    def frameSize(self):
+    def size(self):
         return self.videoStream.frameSize
 
+    def stop(self):
+        self.videoStream.stop()
+
     def pause(self):
-        self.videoStream.paused = True
+        self.videoStream.pause()
 
     def play(self):
-        self.videoStream.paused = False
+        self.videoStream.play()

@@ -5,19 +5,23 @@ from PyQt4 import QtCore
 
 
 class VideoStream(QtCore.QObject):
+    class State:
+        STOPPED = 0
+        PAUSED = 1
+        PLAYING = 2
+
     DEFAULT_FPS = 30
     newFrame = QtCore.pyqtSignal(np.ndarray)
     sourceChanged = QtCore.pyqtSignal()
+    stateChanged = QtCore.pyqtSignal(int)
 
     def __init__(self, source=0):
         super(VideoStream, self).__init__()
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.readFrame)
         self.preReadFrame = None
-
         self.stream = cv2.VideoCapture()
         self.setSource(source)
-        self.paused = False
 
     def setSource(self, source):
         self.stream.release()
@@ -42,16 +46,26 @@ class VideoStream(QtCore.QObject):
             return
         self.newFrame.emit(frame)
 
-    @property
-    def paused(self):
-        return not self.timer.isActive()
+    def stop(self):
+        self.timer.stop()
+        self.stream.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, 0)
+        self.stateChanged.emit(self.state)
 
-    @paused.setter
-    def paused(self, p):
-        if p:
-            self.timer.stop()
-        else:
-            self.timer.start()
+    def pause(self):
+        self.timer.stop()
+        self.stateChanged.emit(self.state)
+
+    def play(self):
+        self.timer.start()
+        self.stateChanged.emit(self.state)
+
+    @property
+    def state(self):
+        if self.timer.isActive():
+            return VideoStream.State.PLAYING
+        elif self.stream.get(cv2.cv.CV_CAP_PROP_POS_FRAMES) != 0:
+            return VideoStream.State.PAUSED
+        return VideoStream.State.STOPPED
 
     @property
     def fps(self):
