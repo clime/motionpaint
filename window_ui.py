@@ -80,7 +80,7 @@ class ColorPicker(QtGui.QWidget):
         self.setupUi()
 
     def setupUi(self):
-        self.color = QtGui.QColor(255, 255, 255)
+        self.color = QtGui.QColor(255, 255, 0)
         self.label = QtGui.QLabel('Color', self)
         self.btn = QtGui.QPushButton('', self)
         self.btn.setStyleSheet("QWidget { background-color: %s }" % self.color.name())
@@ -153,7 +153,7 @@ class ThresholdSetter(QtGui.QWidget):
         self.setupUi()
 
     def setupUi(self):
-        self.threshold = 10
+        self.threshold = 15
 
         self.label = QtGui.QLabel('Threshold', self)
         self.label.setGeometry(0, 0, 120, 20)
@@ -312,10 +312,16 @@ class VideoWidget(QtGui.QWidget):
             self, shortcut="Ctrl+S", enabled=True)
         self.stopAction.triggered.connect(self.stop)
 
+        self.recordAction = QtGui.QAction(
+            QtGui.QIcon('record.png'), "Record",
+            self, shortcut="Ctrl+R", enabled=True)
+        self.recordAction.triggered.connect(self.record)
+
         self.bar2 = QtGui.QToolBar(self)
         self.bar2.addAction(self.playAction)
         self.bar2.addAction(self.pauseAction)
         self.bar2.addAction(self.stopAction)
+        self.bar2.addAction(self.recordAction)
 
         self.fileWidget.fileChanged.connect(self.onFileChanged)
 
@@ -340,6 +346,9 @@ class VideoWidget(QtGui.QWidget):
 
     def stop(self):
         self.videoScreen.stop()
+
+    def record(self):
+        pass
 
 
 class VideoScreen(QtGui.QWidget):

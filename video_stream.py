@@ -10,18 +10,22 @@ class VideoStream(QtCore.QObject):
         PAUSED = 1
         PLAYING = 2
 
-    DEFAULT_FPS = 30
+    DEFAULT_FPS = 15
     newFrame = QtCore.pyqtSignal(np.ndarray)
     sourceChanged = QtCore.pyqtSignal()
     stateChanged = QtCore.pyqtSignal(int)
 
-    def __init__(self, source=0):
+    def __init__(self, source=0, output=None):
         super(VideoStream, self).__init__()
         self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.readFrame)
+        self.timer.timeout.connect(self.processFrame)
         self.preReadFrame = None
         self.stream = cv2.VideoCapture()
         self.setSource(source)
+        output = 'file.mpg'
+        self.videoWriter = cv2.VideoWriter(output, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize) if output else None
+        output = 'file-diff.mpg'
+        self.diffVideoWriter = cv2.VideoWriter(output, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize) if output else None
 
     def setSource(self, source):
         self.stream.release()
@@ -36,7 +40,7 @@ class VideoStream(QtCore.QObject):
         self.stream.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, h)
 
     @QtCore.pyqtSlot()
-    def readFrame(self):
+    def processFrame(self):
         if self.preReadFrame:
             self.newFrame.emit(self.preReadFrame)
             self.preReadFrame = None
@@ -44,7 +48,12 @@ class VideoStream(QtCore.QObject):
         ret, frame = self.stream.read()
         if not ret:
             return
+        orig_frame = frame.copy()
         self.newFrame.emit(frame)
+        if self.videoWriter:
+            self.videoWriter.write(frame)
+        if self.diffVideoWriter:
+            self.diffVideoWriter.write(frame - orig_frame)
 
     def stop(self):
         self.timer.stop()
