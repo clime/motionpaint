@@ -22,13 +22,14 @@ class VideoStream(QtCore.QObject):
         self.preReadFrame = None
         self.stream = cv2.VideoCapture()
         self.setSource(source)
-        output = 'file.mpg'
-        self.videoWriter = cv2.VideoWriter(output, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize) if output else None
-        output = 'file-diff.mpg'
-        self.diffVideoWriter = cv2.VideoWriter(output, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize) if output else None
+        self.output = 'output.mpg'
+        self.diffOutput = 'output-diff.mpg'
+        self.recordingOn = False
+        self.videoWriter = cv2.VideoWriter()
+        self.diffVideoWriter = cv2.VideoWriter()
 
     def setSource(self, source):
-        self.stream.release()
+        self.stop()
         self.stream = cv2.VideoCapture(source)
         _, preReadFrame = self.stream.read() # we need to preread the first frame to have fps, w, h info available
         self.sourceChanged.emit()
@@ -50,12 +51,12 @@ class VideoStream(QtCore.QObject):
             return
         orig_frame = frame.copy()
         self.newFrame.emit(frame)
-        if self.videoWriter:
+        if self.recordingOn:
             self.videoWriter.write(frame)
-        if self.diffVideoWriter:
             self.diffVideoWriter.write(frame - orig_frame)
 
     def stop(self):
+        self.recordStop()
         self.timer.stop()
         self.stream.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, 0)
         self.stateChanged.emit(self.state)
@@ -68,11 +69,21 @@ class VideoStream(QtCore.QObject):
         self.timer.start()
         self.stateChanged.emit(self.state)
 
+    def record(self):
+        self.videoWriter.open(self.output, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
+        self.diffVideoWriter.open(self.diffOutput, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
+        open(self.output, 'w').close()
+        open(self.diffOutput, 'w').close()
+        self.recordingOn = True
+
+    def recordStop(self):
+        self.recordingOn = False
+
     @property
     def state(self):
         if self.timer.isActive():
             return VideoStream.State.PLAYING
-        elif self.stream.get(cv2.cv.CV_CAP_PROP_POS_FRAMES) != 0:
+        elif self.stream.get(cv2.cv.CV_CAP_PROP_POS_FRAMES) != 0: # does not work properly, returns -1 or 0 :(
             return VideoStream.State.PAUSED
         return VideoStream.State.STOPPED
 

@@ -21,8 +21,8 @@ class Painter(QtCore.QObject):
         mainWindow.alphaSetter.alphaChanged.connect(self.onAlphaChanged)
         mainWindow.thresholdSetter.thresholdChanged.connect(self.onThresholdChanged)
         mainWindow.fadingSetter.fadingChanged.connect(self.onFadingChanged)
-        mainWindow.videoWidget.videoScreen.newFrame.connect(self.processFrame)
-        mainWindow.videoWidget.videoScreen.sourceChanged.connect(self.onVideoSourceChanged)
+        mainWindow.videoWidget.newFrame.connect(self.processFrame)
+        mainWindow.videoWidget.sourceChanged.connect(self.onVideoSourceChanged)
 
         self.prevFrameInited = False
         self.frameCount = 0

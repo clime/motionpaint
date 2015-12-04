@@ -274,18 +274,75 @@ class FileWidget(QtGui.QWidget):
             self.fileChanged.emit(self.fname)
 
 
+class VideoScreen(QtGui.QWidget):
+    def __init__(self, videoStream, mainWindow, parent=None):
+        super(VideoScreen, self).__init__(parent)
+        self.mainWindow = mainWindow
+        self.videoStream = videoStream
+
+        self.videoStream.newFrame.connect(self.onNewFrame)
+        self.videoStream.sourceChanged.connect(self.onSourceChanged)
+        self.videoStream.stateChanged.connect(self.onStateChanged)
+
+        self.frame = None
+
+        w, h = self.videoStream.frameSize
+        if not w:
+            w = 640
+        if not h:
+            h = 480
+        self.setMinimumSize(w, h)
+
+    def frame2QImage(self, frame):
+        height, width = frame.shape[:2]
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        return QtGui.QImage(frame, width, height, QtGui.QImage.Format_RGB888)
+
+    @QtCore.pyqtSlot(np.ndarray)
+    def onNewFrame(self, frame):
+        self.frame = frame
+        self.update()
+
+    def onSourceChanged(self):
+        self.frame = None
+
+    @QtCore.pyqtSlot(int)
+    def onStateChanged(self, state):
+        self.update()
+
+    def paintEvent(self, e):
+        if self.frame is not None and self.videoStream.state != VideoStream.State.STOPPED:
+            painter = QtGui.QPainter(self)
+            painter.drawImage(QtCore.QPoint(0, 0), self.frame2QImage(self.frame))
+
+    @property
+    def size(self):
+        return self.videoStream.frameSize
+
+
 class VideoWidget(QtGui.QWidget):
+    newFrame = QtCore.pyqtSignal(np.ndarray)
+    sourceChanged = QtCore.pyqtSignal()
+    stateChanged = QtCore.pyqtSignal(int)
+
     def __init__(self, mainWindow, parent=None):
         super(VideoWidget, self).__init__(parent)
         self.mainWindow = mainWindow
+
+        self.videoStream = VideoStream(0)
+        self.videoStream.newFrame.connect(self.onNewFrame)
+        self.videoStream.sourceChanged.connect(self.onSourceChanged)
+        self.videoStream.stateChanged.connect(self.onStateChanged)
+
         self.setupUi()
+        self.play()
 
     def setupUi(self):
-        self.videoScreen = VideoScreen(self, self)
+        self.videoScreen = VideoScreen(self.videoStream, self, self)
 
         self.fileWidget = FileWidget(self.mainWindow, self)
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
-        self.switchToWebCamBtn = QtGui.QPushButton('Switch to WebCam', self)
+        self.switchToWebCamBtn = QtGui.QPushButton("Switch to WebCam", self)
         self.switchToWebCamBtn.setStyleSheet("margin-right: 7px; padding: 5px;")
         self.switchToWebCamBtn.clicked.connect(self.onSwitchToWebCamBtnClicked)
 
@@ -313,15 +370,23 @@ class VideoWidget(QtGui.QWidget):
         self.stopAction.triggered.connect(self.stop)
 
         self.recordAction = QtGui.QAction(
-            QtGui.QIcon('record.png'), "Record",
+            QtGui.QIcon("record.png"), "Record",
             self, shortcut="Ctrl+R", enabled=True)
         self.recordAction.triggered.connect(self.record)
+        self.recordAction.setVisible(True)
+
+        self.recordStopAction = QtGui.QAction(
+            QtGui.QIcon("recording.png"), "Stop recording",
+            self, shortcut="Ctrl+R", enabled=True)
+        self.recordStopAction.triggered.connect(self.recordStop)
+        self.recordStopAction.setVisible(False)
 
         self.bar2 = QtGui.QToolBar(self)
         self.bar2.addAction(self.playAction)
         self.bar2.addAction(self.pauseAction)
         self.bar2.addAction(self.stopAction)
         self.bar2.addAction(self.recordAction)
+        self.bar2.addAction(self.recordStopAction)
 
         self.fileWidget.fileChanged.connect(self.onFileChanged)
 
@@ -330,88 +395,66 @@ class VideoWidget(QtGui.QWidget):
         hbox.addStretch()
         hbox.addWidget(self.bar1)
         hbox.addWidget(self.bar2)
-        hbox.setContentsMargins(-1, -1, -1, 2);
+        hbox.setContentsMargins(-1, -1, -1, 2)
 
     def onSwitchToWebCamBtnClicked(self):
-        self.videoScreen.setSource(0)
+        self.videoStream.setSource(0)
+        self.recordAction.setEnabled(True)
+        self.recordStopAction.setEnabled(True)
+        self.play()
 
     def onFileChanged(self, filename):
-        self.videoScreen.setSource(str(filename))
-
-    def pause(self):
-        self.videoScreen.pause()
-
-    def play(self):
-        self.videoScreen.play()
-
-    def stop(self):
-        self.videoScreen.stop()
-
-    def record(self):
-        pass
-
-
-class VideoScreen(QtGui.QWidget):
-    newFrame = QtCore.pyqtSignal(np.ndarray)
-    sourceChanged = QtCore.pyqtSignal()
-    stateChanged = QtCore.pyqtSignal(int)
-
-    def __init__(self, mainWindow, parent=None):
-        super(VideoScreen, self).__init__(parent)
-        self.mainWindow = mainWindow
-
-        self.frame = None
-
-        self.videoStream = VideoStream(0)
-        self.videoStream.newFrame.connect(self.onNewFrame)
-        self.videoStream.sourceChanged.connect(self.onSourceChanged)
-        self.videoStream.stateChanged.connect(self.onStateChanged)
-
-        w, h = self.videoStream.frameSize
-        if not w:
-            w = 640
-        if not h:
-            h = 480
-        self.setMinimumSize(w, h)
-
-        self.videoStream.play()
-
-    def setSource(self, source):
-        self.videoStream.setSource(source)
-
-    def frame2QImage(self, frame):
-        height, width = frame.shape[:2]
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return QtGui.QImage(frame, width, height, QtGui.QImage.Format_RGB888)
-
-    @QtCore.pyqtSlot(np.ndarray)
-    def onNewFrame(self, frame):
-        self.frame = frame
-        self.newFrame.emit(self.frame)
-        self.update()
-
-    def onSourceChanged(self):
-        self.sourceChanged.emit()
-
-    @QtCore.pyqtSlot(int)
-    def onStateChanged(self, state):
-        self.stateChanged.emit(state)
-        self.update()
-
-    def paintEvent(self, e):
-        if self.frame is not None and self.videoStream.state != VideoStream.State.STOPPED:
-            painter = QtGui.QPainter(self)
-            painter.drawImage(QtCore.QPoint(0, 0), self.frame2QImage(self.frame))
-
-    @property
-    def size(self):
-        return self.videoStream.frameSize
-
-    def stop(self):
-        self.videoStream.stop()
+        self.videoStream.setSource(str(filename))
+        self.recordAction.setEnabled(False)
+        self.recordStopAction.setEnabled(False)
 
     def pause(self):
         self.videoStream.pause()
 
     def play(self):
         self.videoStream.play()
+
+    def stop(self):
+        self.videoStream.stop()
+
+    def record(self):
+        self.recordAction.setVisible(False)
+        self.recordStopAction.setVisible(True)
+        self.videoStream.record()
+
+    def recordStop(self):
+        self.recordAction.setVisible(True)
+        self.recordStopAction.setVisible(False)
+        self.videoStream.recordStop()
+
+    @QtCore.pyqtSlot(np.ndarray)
+    def onNewFrame(self, frame):
+        self.newFrame.emit(frame)
+
+    def onSourceChanged(self):
+        self.sourceChanged.emit()
+
+    @QtCore.pyqtSlot(int)
+    def onStateChanged(self, state):
+        if state == VideoStream.State.STOPPED:
+            self.setStoppedState()
+        elif state == VideoStream.State.PAUSED:
+            self.setPausedState()
+        elif state == VideoStream.State.PLAYING:
+            self.setPlayingState()
+        self.stateChanged.emit(state)
+
+    def setStoppedState(self):
+        self.playAction.setEnabled(True)
+        self.pauseAction.setEnabled(False)
+        self.stopAction.setEnabled(False)
+
+    def setPausedState(self):
+        self.playAction.setEnabled(True)
+        self.pauseAction.setEnabled(False)
+        self.stopAction.setEnabled(True)
+
+    def setPlayingState(self):
+        self.playAction.setEnabled(False)
+        self.pauseAction.setEnabled(True)
+        self.stopAction.setEnabled(True)
