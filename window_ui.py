@@ -240,13 +240,15 @@ class FadingSetter(QtGui.QWidget):
 class FileWidget(QtGui.QWidget):
     fileChanged = QtCore.pyqtSignal(QtCore.QString)
 
-    def __init__(self, mainWindow, parent=None):
+    def __init__(self, mainWindow, parent=None, text='Select File', saveAs=False):
         super(FileWidget, self).__init__(parent)
         self.mainWindow = mainWindow
-        self.setupUi()
+        self.saveAs = saveAs
+        self.setupUi(text)
 
-    def setupUi(self):
-        self.btn = QtGui.QPushButton('Select File', self)
+    def setupUi(self, text):
+        self.btn = QtGui.QPushButton(text, self)
+        self.btn.setStyleSheet("min-width: 100px")
         self.btn.clicked.connect(self.showDialog)
         dirIcon = self.style().standardIcon(self.style().SP_DirIcon)
         self.btn.setIcon(dirIcon)
@@ -267,11 +269,14 @@ class FileWidget(QtGui.QWidget):
 
     def showDialog(self):
         self.mainWindow.videoWidget.pause()
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Select video file', '.', "avi, mp4 (*.avi *.mp4)")
-        self.mainWindow.videoWidget.play()
+        if not self.saveAs:
+            fname = QtGui.QFileDialog.getOpenFileName(self, 'Select video file', '.', "avi, mp4 (*.avi *.mp4)")
+        else:
+            fname = QtGui.QFileDialog.getSaveFileName(self, 'Create video file', '.', "mpg")
         if not fname.isEmpty():
             self.fname = fname
             self.fileChanged.emit(self.fname)
+        self.mainWindow.videoWidget.play()
 
 
 class VideoScreen(QtGui.QWidget):
@@ -335,24 +340,25 @@ class VideoWidget(QtGui.QWidget):
         self.videoStream.stateChanged.connect(self.onStateChanged)
 
         self.setupUi()
+
+        self.setOutputNotReadyState()
+        self.switchToWebCamBtn.setChecked(True)
         self.play()
 
     def setupUi(self):
         self.videoScreen = VideoScreen(self.videoStream, self, self)
 
-        self.fileWidget = FileWidget(self.mainWindow, self)
+        self.fileWidget = FileWidget(self.mainWindow, self, 'Set input')
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
-        self.switchToWebCamBtn = QtGui.QPushButton("Switch to WebCam", self)
-        self.switchToWebCamBtn.setStyleSheet("margin-right: 7px; padding: 5px;")
+        self.fileWidget.fileChanged.connect(self.onFileChanged)
+        self.switchToWebCamBtn = QtGui.QPushButton(QtGui.QIcon("webcam.png"), "", self)
+        self.switchToWebCamBtn.setStyleSheet("margin-right: 7px; padding: 6px")
         self.switchToWebCamBtn.clicked.connect(self.onSwitchToWebCamBtnClicked)
+        self.switchToWebCamBtn.setFlat(True)
+        self.switchToWebCamBtn.setCheckable(True)
 
-        self.spacer = QtGui.QWidget()
-        self.spacer.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
-
-        self.bar1 = QtGui.QToolBar(self)
-        self.bar1.addWidget(self.fileWidget)
-        self.bar1.addWidget(self.spacer)
-        self.bar1.addWidget(self.switchToWebCamBtn)
+        self.spacer1 = QtGui.QWidget()
+        self.spacer1.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
 
         self.playAction = QtGui.QAction(
             self.style().standardIcon(QtGui.QStyle.SP_MediaPlay), "Play",
@@ -369,6 +375,17 @@ class VideoWidget(QtGui.QWidget):
             self, shortcut="Ctrl+S", enabled=True)
         self.stopAction.triggered.connect(self.stop)
 
+        self.bar1 = QtGui.QToolBar(self)
+        self.bar1.addWidget(self.fileWidget)
+        self.bar1.addWidget(self.spacer1)
+        self.bar1.addAction(self.playAction)
+        self.bar1.addAction(self.pauseAction)
+        self.bar1.addAction(self.stopAction)
+        self.bar1.addWidget(self.switchToWebCamBtn)
+
+        self.saveAsWidget = FileWidget(self.mainWindow, self, 'Set output', True)
+        self.saveAsWidget.fileChanged.connect(self.onSaveAsChanged)
+
         self.recordAction = QtGui.QAction(
             QtGui.QIcon("record.png"), "Record",
             self, shortcut="Ctrl+R", enabled=True)
@@ -381,14 +398,19 @@ class VideoWidget(QtGui.QWidget):
         self.recordStopAction.triggered.connect(self.recordStop)
         self.recordStopAction.setVisible(False)
 
+        self.spacer2 = QtGui.QWidget()
+        self.spacer2.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+
+        self.processBtn = QtGui.QPushButton("Process", self)
+        self.processBtn.setStyleSheet("margin-right: 7px; padding: 5px; width: 140px")
+        self.processBtn.clicked.connect(self.onProcessBtnClicked)
+
         self.bar2 = QtGui.QToolBar(self)
-        self.bar2.addAction(self.playAction)
-        self.bar2.addAction(self.pauseAction)
-        self.bar2.addAction(self.stopAction)
+        self.bar2.addWidget(self.saveAsWidget)
+        self.bar2.addWidget(self.spacer2)
         self.bar2.addAction(self.recordAction)
         self.bar2.addAction(self.recordStopAction)
-
-        self.fileWidget.fileChanged.connect(self.onFileChanged)
+        self.bar2.addWidget(self.processBtn)
 
         hbox = QtGui.QVBoxLayout(self)
         hbox.addWidget(self.videoScreen)
@@ -397,16 +419,25 @@ class VideoWidget(QtGui.QWidget):
         hbox.addWidget(self.bar2)
         hbox.setContentsMargins(-1, -1, -1, 2)
 
+    def onProcessBtnClicked(self):
+        pass
+
     def onSwitchToWebCamBtnClicked(self):
-        self.videoStream.setSource(0)
-        self.recordAction.setEnabled(True)
-        self.recordStopAction.setEnabled(True)
-        self.play()
+        if self.switchToWebCamBtn.isChecked():
+            self.videoStream.resetSource(0)
+            self.play()
+        else:
+            self.videoStream.resetSource()
 
     def onFileChanged(self, filename):
-        self.videoStream.setSource(str(filename))
-        self.recordAction.setEnabled(False)
-        self.recordStopAction.setEnabled(False)
+        self.videoStream.resetSource(str(filename))
+
+    def onSaveAsChanged(self, filename): # todo
+        if not filename:
+            self.setOutputNotReadyState()
+        else:
+            self.setOutputReadyState()
+            self.videoStream.setOutput(str(filename))
 
     def pause(self):
         self.videoStream.pause()
@@ -436,13 +467,20 @@ class VideoWidget(QtGui.QWidget):
 
     @QtCore.pyqtSlot(int)
     def onStateChanged(self, state):
-        if state == VideoStream.State.STOPPED:
+        if state == VideoStream.State.CLOSED:
+            self.setClosedState()
+        elif state == VideoStream.State.STOPPED:
             self.setStoppedState()
         elif state == VideoStream.State.PAUSED:
             self.setPausedState()
         elif state == VideoStream.State.PLAYING:
             self.setPlayingState()
         self.stateChanged.emit(state)
+
+    def setClosedState(self):
+        self.playAction.setEnabled(False)
+        self.pauseAction.setEnabled(False)
+        self.stopAction.setEnabled(False)
 
     def setStoppedState(self):
         self.playAction.setEnabled(True)
@@ -458,3 +496,13 @@ class VideoWidget(QtGui.QWidget):
         self.playAction.setEnabled(False)
         self.pauseAction.setEnabled(True)
         self.stopAction.setEnabled(True)
+
+    def setOutputReadyState(self):
+        self.recordAction.setEnabled(True)
+        self.recordStopAction.setEnabled(True)
+        self.processBtn.setEnabled(True)
+
+    def setOutputNotReadyState(self):
+        self.recordAction.setEnabled(False)
+        self.recordStopAction.setEnabled(False)
+        self.processBtn.setEnabled(False)
