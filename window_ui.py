@@ -2,6 +2,8 @@
 
 import numpy as np
 import cv2
+import re
+import os
 
 from PyQt4 import QtCore, QtGui
 from video_stream import VideoStream
@@ -248,7 +250,7 @@ class FileWidget(QtGui.QWidget):
 
     def setupUi(self, text):
         self.btn = QtGui.QPushButton(text, self)
-        self.btn.setStyleSheet("min-width: 100px")
+        self.btn.setStyleSheet('min-width: 100px')
         self.btn.clicked.connect(self.showDialog)
         dirIcon = self.style().standardIcon(self.style().SP_DirIcon)
         self.btn.setIcon(dirIcon)
@@ -261,22 +263,26 @@ class FileWidget(QtGui.QWidget):
         hbox.addWidget(self.btn)
         hbox.addWidget(self.label)
 
-        def onFileChanged(filename):
+        def onInputChanged(filename):
             self.label.setText(filename)
             self.label.adjustSize()
 
-        self.fileChanged.connect(onFileChanged)
+        self.fileChanged.connect(onInputChanged)
 
     def showDialog(self):
         self.mainWindow.videoWidget.pause()
         if not self.saveAs:
-            fname = QtGui.QFileDialog.getOpenFileName(self, 'Select video file', '.', "avi, mp4 (*.avi *.mp4)")
+            fname = QtGui.QFileDialog.getOpenFileName(self, 'Select video file', '.', 'avi, mp4 (*.avi *.mp4)')
         else:
-            fname = QtGui.QFileDialog.getSaveFileName(self, 'Create video file', '.', "mpg")
-        if not fname.isEmpty():
+            saveAsDlg = QtGui.QFileDialog()
+            saveAsDlg.setDefaultSuffix('.mpg') # does not quite work
+            fname = str(saveAsDlg.getSaveFileName(self, 'Create video file', '.', 'mpg'))
+            if fname and not re.match(r'([\w ]*)(\..+)', os.path.basename(fname)):
+                fname += '.mpg'
+        if fname:
             self.fname = fname
             self.fileChanged.emit(self.fname)
-        self.mainWindow.videoWidget.play()
+        #self.mainWindow.videoWidget.play()
 
 
 class VideoScreen(QtGui.QWidget):
@@ -339,9 +345,12 @@ class VideoWidget(QtGui.QWidget):
         self.videoStream.sourceChanged.connect(self.onSourceChanged)
         self.videoStream.stateChanged.connect(self.onStateChanged)
 
+        self.inputFilename = None
+        self.outputFilename = None
+
         self.setupUi()
 
-        self.setOutputNotReadyState()
+        self.setRecordingControlsState()
         self.switchToWebCamBtn.setChecked(True)
         self.play()
 
@@ -350,7 +359,7 @@ class VideoWidget(QtGui.QWidget):
 
         self.fileWidget = FileWidget(self.mainWindow, self, 'Set input')
         self.fileWidget.setObjectName(_fromUtf8("fileWidget"))
-        self.fileWidget.fileChanged.connect(self.onFileChanged)
+        self.fileWidget.fileChanged.connect(self.onInputChanged)
         self.switchToWebCamBtn = QtGui.QPushButton(QtGui.QIcon("webcam.png"), "", self)
         self.switchToWebCamBtn.setStyleSheet("margin-right: 7px; padding: 6px")
         self.switchToWebCamBtn.clicked.connect(self.onSwitchToWebCamBtnClicked)
@@ -384,7 +393,7 @@ class VideoWidget(QtGui.QWidget):
         self.bar1.addWidget(self.switchToWebCamBtn)
 
         self.saveAsWidget = FileWidget(self.mainWindow, self, 'Set output', True)
-        self.saveAsWidget.fileChanged.connect(self.onSaveAsChanged)
+        self.saveAsWidget.fileChanged.connect(self.onOutputChanged)
 
         self.recordAction = QtGui.QAction(
             QtGui.QIcon("record.png"), "Record",
@@ -429,15 +438,16 @@ class VideoWidget(QtGui.QWidget):
         else:
             self.videoStream.resetSource()
 
-    def onFileChanged(self, filename):
+    def onInputChanged(self, filename):
+        self.inputFilename = filename
+        self.switchToWebCamBtn.setChecked(False)
+        self.setRecordingControlsState()
         self.videoStream.resetSource(str(filename))
 
-    def onSaveAsChanged(self, filename): # todo
-        if not filename:
-            self.setOutputNotReadyState()
-        else:
-            self.setOutputReadyState()
-            self.videoStream.setOutput(str(filename))
+    def onOutputChanged(self, filename):
+        self.outputFilename = filename
+        self.setRecordingControlsState()
+        self.videoStream.resetOutput(str(filename))
 
     def pause(self):
         self.videoStream.pause()
@@ -497,12 +507,7 @@ class VideoWidget(QtGui.QWidget):
         self.pauseAction.setEnabled(True)
         self.stopAction.setEnabled(True)
 
-    def setOutputReadyState(self):
-        self.recordAction.setEnabled(True)
-        self.recordStopAction.setEnabled(True)
-        self.processBtn.setEnabled(True)
-
-    def setOutputNotReadyState(self):
-        self.recordAction.setEnabled(False)
-        self.recordStopAction.setEnabled(False)
-        self.processBtn.setEnabled(False)
+    def setRecordingControlsState(self):
+        self.recordAction.setEnabled(bool(self.outputFilename))
+        self.recordStopAction.setEnabled(bool(self.outputFilename))
+        self.processBtn.setEnabled(bool(self.outputFilename) and bool(self.inputFilename))

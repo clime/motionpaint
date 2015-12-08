@@ -18,33 +18,36 @@ class VideoStream(QtCore.QObject):
     sourceChanged = QtCore.pyqtSignal()
     stateChanged = QtCore.pyqtSignal(int)
 
-    def __init__(self, source=0, outputPath=None):
+    def __init__(self, source=0, output=None):
         super(VideoStream, self).__init__()
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.processFrame)
-        self.preReadFrame = None
         self.stream = cv2.VideoCapture()
         self.resetSource(source)
         self.recordingOn = False
-        self.videoWriter = cv2.VideoWriter()
-        self.diffVideoWriter = cv2.VideoWriter()
-        if outputPath:
-            self.setOutput(outputPath)
+        self.resetOutput(output)
 
     def resetSource(self, source=None):
         self.stop()
         self.stream.release()
-        if source is not None:
+        if source or source == 0:
             self.stream.open(source)
-            _, preReadFrame = self.stream.read() # we need to preread the first frame to have fps, w, h info available
+            _, _ = self.stream.read() # we need to preread the first frame to have fps, w, h info available
             self.timer.setInterval(1000/self.fps)
         self.stateChanged.emit(self.state)
         self.sourceChanged.emit()
 
-    def setOutput(self, outputPath):
-        diffOutputPath = os.path.dirname(outputPath) + re.sub(r'(\w*)(\..*)?', r'\1-diff\2', os.path.basename(outputPath))
-        self.videoWriter.open(outputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
-        self.diffVideoWriter.open(diffOutputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
+    def resetOutput(self, output=None):
+        if output:
+            self.outputPath = output
+            self.diffOutputPath = os.path.join(os.path.dirname(self.outputPath), re.sub(r'(\w*)(\..*)', r'\1-diff\2', os.path.basename(self.outputPath)))
+            self.videoWriter.open(self.outputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
+            self.diffVideoWriter.open(self.diffOutputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
+        else:
+            self.outputPath = None
+            self.diffOutputPath = None
+            self.videoWriter = cv2.VideoWriter()
+            self.diffVideoWriter = cv2.VideoWriter()
 
     # does not work :-(
     def setSize(self, w=640, h=480):
@@ -53,10 +56,6 @@ class VideoStream(QtCore.QObject):
 
     @QtCore.pyqtSlot()
     def processFrame(self):
-        if self.preReadFrame:
-            self.newFrame.emit(self.preReadFrame)
-            self.preReadFrame = None
-            return
         ret, frame = self.stream.read()
         if not ret:
             return
@@ -81,20 +80,24 @@ class VideoStream(QtCore.QObject):
         self.stateChanged.emit(self.state)
 
     def record(self):
-        open(self.output, 'w').close() # empty the file
-        open(self.diffOutput, 'w').close() # empty the file
+        open(self.outputPath, 'w').close() # empty the file
+        open(self.diffOutputPath, 'w').close() # empty the file
         self.recordingOn = True
 
     def recordStop(self):
         self.recordingOn = False
 
     @property
-    def isOpened(self):
+    def isInputOpened(self):
         return self.stream.isOpened()
 
     @property
+    def isOutputOpened(self):
+        return self.videoWriter.isOpened()
+
+    @property
     def state(self):
-        if not self.isOpened:
+        if not self.isInputOpened:
             return VideoStream.State.CLOSED
         elif self.timer.isActive():
             return VideoStream.State.PLAYING
