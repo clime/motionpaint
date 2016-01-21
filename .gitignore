@@ -1,2 +1,5 @@
 *.pyc
 *.mpg
+MANIFEST
+build
+dist
