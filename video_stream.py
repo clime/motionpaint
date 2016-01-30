@@ -117,3 +117,6 @@ class VideoStream(QtCore.QObject):
         w = self.stream.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
         h = self.stream.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
         return int(w), int(h)
+
+    def setFPS(self, fps):
+        self.stream.set(cv2.cv.CV_CAP_PROP_FPS, fps)

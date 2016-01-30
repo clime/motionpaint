@@ -384,13 +384,13 @@ class VideoWidget(QtGui.QWidget):
             self, shortcut="Ctrl+S", enabled=True)
         self.stopAction.triggered.connect(self.stop)
 
-        self.bar1 = QtGui.QToolBar(self)
-        self.bar1.addWidget(self.fileWidget)
-        self.bar1.addWidget(self.spacer1)
-        self.bar1.addAction(self.playAction)
-        self.bar1.addAction(self.pauseAction)
-        self.bar1.addAction(self.stopAction)
-        self.bar1.addWidget(self.switchToWebCamBtn)
+        self.inputBar = QtGui.QToolBar(self)
+        self.inputBar.addWidget(self.fileWidget)
+        self.inputBar.addWidget(self.spacer1)
+        self.inputBar.addAction(self.playAction)
+        self.inputBar.addAction(self.pauseAction)
+        self.inputBar.addAction(self.stopAction)
+        self.inputBar.addWidget(self.switchToWebCamBtn)
 
         self.saveAsWidget = FileWidget(self.mainWindow, self, 'Set output', True)
         self.saveAsWidget.fileChanged.connect(self.onOutputChanged)
@@ -414,22 +414,23 @@ class VideoWidget(QtGui.QWidget):
         self.processBtn.setStyleSheet("margin-right: 7px; padding: 5px; width: 140px")
         self.processBtn.clicked.connect(self.onProcessBtnClicked)
 
-        self.bar2 = QtGui.QToolBar(self)
-        self.bar2.addWidget(self.saveAsWidget)
-        self.bar2.addWidget(self.spacer2)
-        self.bar2.addAction(self.recordAction)
-        self.bar2.addAction(self.recordStopAction)
-        self.bar2.addWidget(self.processBtn)
+        self.outputBar = QtGui.QToolBar(self)
+        self.outputBar.addWidget(self.saveAsWidget)
+        self.outputBar.addWidget(self.spacer2)
+        self.outputBar.addAction(self.recordAction)
+        self.outputBar.addAction(self.recordStopAction)
+        self.outputBar.addWidget(self.processBtn)
 
         hbox = QtGui.QVBoxLayout(self)
         hbox.addWidget(self.videoScreen)
         hbox.addStretch()
-        hbox.addWidget(self.bar1)
-        hbox.addWidget(self.bar2)
+        hbox.addWidget(self.inputBar)
+        hbox.addWidget(self.outputBar)
         hbox.setContentsMargins(-1, -1, -1, 2)
 
     def onProcessBtnClicked(self):
-        pass
+        self.play()
+        self.videoStream.record()
 
     def onSwitchToWebCamBtnClicked(self):
         if self.switchToWebCamBtn.isChecked():
