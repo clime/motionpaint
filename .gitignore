@@ -2,3 +2,5 @@
 *.mpg
 *.avi
 MANIFEST
+build
+dist
