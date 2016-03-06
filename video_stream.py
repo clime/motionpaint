@@ -41,13 +41,9 @@ class VideoStream(QtCore.QObject):
         if output:
             self.outputPath = output
             self.diffOutputPath = os.path.join(os.path.dirname(self.outputPath), re.sub(r'(\w*)(\..*)', r'\1-diff\2', os.path.basename(self.outputPath)))
-            self.videoWriter.open(self.outputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
-            self.diffVideoWriter.open(self.diffOutputPath, cv2.cv.CV_FOURCC('M','J','P','G'), self.fps, self.frameSize)
         else:
             self.outputPath = None
             self.diffOutputPath = None
-            self.videoWriter = cv2.VideoWriter()
-            self.diffVideoWriter = cv2.VideoWriter()
 
     # does not work :-(
     def setSize(self, w=640, h=480):
@@ -80,12 +76,14 @@ class VideoStream(QtCore.QObject):
         self.stateChanged.emit(self.state)
 
     def record(self):
-        open(self.outputPath, 'w').close() # empty the file
-        open(self.diffOutputPath, 'w').close() # empty the file
+        self.videoWriter.open(self.outputPath, cv2.cv.CV_FOURCC('X','V','I','D'), self.fps, self.frameSize)
+        self.diffVideoWriter.open(self.diffOutputPath, cv2.cv.CV_FOURCC('X','V','I','D'), self.fps, self.frameSize)
         self.recordingOn = True
 
     def recordStop(self):
         self.recordingOn = False
+        self.videoWriter = cv2.VideoWriter()
+        self.diffVideoWriter = cv2.VideoWriter()
 
     @property
     def isInputOpened(self):

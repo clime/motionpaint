@@ -275,10 +275,10 @@ class FileWidget(QtGui.QWidget):
             fname = QtGui.QFileDialog.getOpenFileName(self, 'Select video file', '.', 'avi, mp4 (*.avi *.mp4)')
         else:
             saveAsDlg = QtGui.QFileDialog()
-            saveAsDlg.setDefaultSuffix('.mpg') # does not quite work
-            fname = str(saveAsDlg.getSaveFileName(self, 'Create video file', '.', 'mpg'))
+            saveAsDlg.setDefaultSuffix('.avi') # does not quite work
+            fname = str(saveAsDlg.getSaveFileName(self, 'Create video file', '.', 'avi'))
             if fname and not re.match(r'([\w ]*)(\..+)', os.path.basename(fname)):
-                fname += '.mpg'
+                fname += '.avi'
         if fname:
             self.fname = fname
             self.fileChanged.emit(self.fname)
